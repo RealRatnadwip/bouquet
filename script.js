@@ -18,13 +18,13 @@ window.addEventListener('mousemove', (e) => {
 // Bind sensor listeners for device orientation and motion acceleration
 function bindSensors() {
     window.addEventListener('deviceorientation', (e) => {
-        if (e.gamma !== null && e.beta !== null) {
-            // Map left-right tilt (gamma) and front-back tilt (beta) to stronger offset values (max 90px shift)
-            const targetPX = clamp(e.gamma, -30, 30) * 3.0;
-            const targetPY = clamp(e.beta - 45, -30, 30) * 3.0; // assumes holding angle around 45 degrees
+        if (e.gamma !== null) {
+            // Map left-right tilt (gamma) to a gentle horizontal offset (max 30px shift)
+            const targetPX = clamp(e.gamma, -20, 20) * 1.5;
             
-            parallaxX += (targetPX - parallaxX) * 0.08;
-            parallaxY += (targetPY - parallaxY) * 0.08;
+            // Slow interpolation factor (0.04) for very smooth, soft sway transitions
+            parallaxX += (targetPX - parallaxX) * 0.04;
+            parallaxY = 0; // Disable up/down vertical movement entirely
         }
     });
 
