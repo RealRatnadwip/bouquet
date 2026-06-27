@@ -5,6 +5,64 @@ let W, H, CX, BASE, SC;
 const flowers = [];
 const START = Date.now();
 
+// Track mouse, device tilt (gyroscope), and motion (accelerometer) for sways & parallax
+let mouseX = window.innerWidth / 2;
+let parallaxX = 0;
+let parallaxY = 0;
+let shakeWind = 0;
+
+window.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+});
+
+// Bind sensor listeners for device orientation and motion acceleration
+function bindSensors() {
+    window.addEventListener('deviceorientation', (e) => {
+        if (e.gamma !== null && e.beta !== null) {
+            // Map left-right tilt (gamma) and front-back tilt (beta) to stronger offset values (max 90px shift)
+            const targetPX = clamp(e.gamma, -30, 30) * 3.0;
+            const targetPY = clamp(e.beta - 45, -30, 30) * 3.0; // assumes holding angle around 45 degrees
+            
+            parallaxX += (targetPX - parallaxX) * 0.08;
+            parallaxY += (targetPY - parallaxY) * 0.08;
+        }
+    });
+
+    window.addEventListener('devicemotion', (e) => {
+        const acc = e.accelerationIncludingGravity || e.acceleration;
+        if (acc) {
+            const speed = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
+            if (speed > 3) {
+                // High wind force multiplier for noticeable wind sway on shake
+                shakeWind += (Math.random() > 0.5 ? 1 : -1) * (speed - 3) * 0.05;
+                shakeWind = clamp(shakeWind, -0.85, 0.85); // Allow dramatic sway of up to ~48 degrees
+            }
+        }
+    });
+}
+
+function initSensors() {
+    // iOS 13+ Safari requires requesting permission via user gesture
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+            .then(permissionState => {
+                if (permissionState === 'granted') {
+                    bindSensors();
+                }
+            })
+            .catch(console.error);
+    }
+}
+
+// Bind immediately if modern permission checks are not required (e.g. Android Chrome)
+if (!(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function')) {
+    bindSensors();
+} else {
+    // Register one-time user gesture trigger for browsers requiring authorization prompt
+    window.addEventListener('click', initSensors, { once: true });
+    window.addEventListener('touchstart', initSensors, { once: true });
+}
+
 function resize() {
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
@@ -15,7 +73,7 @@ function resize() {
     updateFlowerPositions();
 }
 
-/* ── HELPERS ─────────────────────────────── */
+// Math and easing helper utilities
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const easeOut = x => 1 - Math.pow(1 - x, 3);
 const seg = (p, s, e) => easeOut(clamp((p - s) / (e - s), 0, 1));
@@ -35,9 +93,8 @@ function bezAngle(x0, y0, cx1, cy1, cx2, cy2, x1, y1, t) {
     return Math.atan2(dy, dx);
 }
 
-/* ── ENVIRONMENT ─────────────────────────── */
+// Environmental lighting pool
 function drawEnvironment() {
-    // Draw a subtle ambient reflection pool near the flower bases
     const pool = ctx.createRadialGradient(CX, BASE, 10, CX, BASE - 20, W);
     pool.addColorStop(0, 'rgba(40, 20, 10, 0.2)');
     pool.addColorStop(1, 'rgba(0,0,0,0)');
@@ -45,6 +102,7 @@ function drawEnvironment() {
     ctx.fillRect(0, BASE - 100, W, H - (BASE - 100));
 }
 
+// Drawing routines for flower components
 function drawStemPoints(points, prog, thick, col) {
     if (prog <= 0 || points.length === 0) return;
     ctx.beginPath();
@@ -65,7 +123,6 @@ function drawStemPoints(points, prog, thick, col) {
     ctx.stroke();
 }
 
-// LILY
 function drawLilyLeaf(x, y, rot, size, prog) {
     if (prog <= 0) return;
     const s = size * prog;
@@ -80,6 +137,7 @@ function drawLilyLeaf(x, y, rot, size, prog) {
     ctx.strokeStyle = 'rgba(0, 40, 0, 0.4)'; ctx.lineWidth = s * 0.02; ctx.stroke();
     ctx.restore();
 }
+
 function drawLilyFlower(x, y, size, prog, wob, stemAngle) {
     const s = size * prog * 1.6;
     const rot = (stemAngle + Math.PI / 2) * 0.3 + wob;
@@ -111,7 +169,6 @@ function drawLilyFlower(x, y, size, prog, wob, stemAngle) {
     ctx.restore();
 }
 
-// ROSE
 function drawRoseFlower(x, y, size, prog, wob, stemAngle) {
     const s = size * prog * 1.3;
     const rot = (stemAngle + Math.PI / 2) + wob;
@@ -143,7 +200,6 @@ function drawRoseFlower(x, y, size, prog, wob, stemAngle) {
     ctx.restore();
 }
 
-// SUNFLOWER
 function drawSunflowerLeaf(x, y, rot, size, prog) {
     if (prog <= 0) return; const s = size * prog;
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
@@ -154,6 +210,7 @@ function drawSunflowerLeaf(x, y, rot, size, prog) {
     ctx.strokeStyle = 'rgba(0, 50, 0, 0.4)'; ctx.lineWidth = s * 0.03; ctx.stroke();
     ctx.restore();
 }
+
 function drawSunflowerFlower(x, y, size, prog, wob, stemAngle) {
     const s = size * prog * 1.5;
     const rot = (stemAngle + Math.PI / 2) * 0.4 + wob;
@@ -181,7 +238,6 @@ function drawSunflowerFlower(x, y, size, prog, wob, stemAngle) {
     ctx.fillStyle = '#3a3b10'; ctx.beginPath(); ctx.arc(0, 0, s * 0.33, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#1a1805'; ctx.beginPath(); ctx.arc(0, 0, s * 0.20, 0, Math.PI * 2); ctx.fill();
     
-    // Optimized seed rendering: 45 seeds instead of 200, slightly larger size
     ctx.fillStyle = '#6b4412';
     const seeds = Math.min(45, Math.floor(45 * prog));
     for (let i = 0; i < seeds; i++) {
@@ -195,7 +251,6 @@ function drawSunflowerFlower(x, y, size, prog, wob, stemAngle) {
     ctx.restore();
 }
 
-// TULIP
 function drawTulipLeaf(x, y, rot, size, prog) {
     if (prog <= 0) return; const s = size * prog;
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
@@ -208,6 +263,7 @@ function drawTulipLeaf(x, y, rot, size, prog) {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)'; ctx.lineWidth = s * 0.03; ctx.stroke();
     ctx.restore();
 }
+
 function drawTulipFlower(x, y, size, prog, wob, stemAngle) {
     const s = size * prog * 1.5;
     const rot = (stemAngle + Math.PI / 2) * 0.2 + wob;
@@ -232,7 +288,6 @@ function drawTulipFlower(x, y, size, prog, wob, stemAngle) {
     ctx.restore();
 }
 
-// GENERIC AESTHETIC
 function drawGenericFlower(x, y, size, prog, wob) {
     const s = size * prog;
     const rot = wob;
@@ -248,7 +303,7 @@ function drawGenericFlower(x, y, size, prog, wob) {
     ctx.beginPath(); ctx.arc(0, 0, s * 0.10, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,252,200,0.92)'; ctx.fill(); ctx.restore();
 }
 
-/* ── GAME/INTERACTION LOGIC ─────────────── */
+// Flower definitions database
 const FLOWER_DEFS = {
     lily: { sd: '#234a1c', sl: '#468f3b', leaves: [0.2, 0.5, 0.8] },
     rose: { sd: '#1b6522', sl: '#2caa38', leaves: [] },
@@ -270,14 +325,12 @@ function updateFlowerPositions() {
         f.size = f.rSize * SC;
         f.thick = f.rThick * SC;
 
-        // Re-calculate stem points
         f.stemPoints = [];
         const steps = 24;
         for (let i = 0; i <= steps; i++) {
             f.stemPoints.push(bezPt(f.bx, f.by, f.cp1x, f.cp1y, f.cp2x, f.cp2y, f.tx, f.ty, i / steps));
         }
 
-        // Re-calculate leaf positions
         f.leafData = f.leaves.map((lt, leafIdx) => {
             const [lx, ly] = bezPt(f.bx, f.by, f.cp1x, f.cp1y, f.cp2x, f.cp2y, f.tx, f.ty, lt);
             const lAngle = bezAngle(f.bx, f.by, f.cp1x, f.cp1y, f.cp2x, f.cp2y, f.tx, f.ty, lt);
@@ -293,7 +346,7 @@ function updateFlowerPositions() {
 
 function spawnAutomaticFlowers() {
     flowers.length = 0;
-    const count = W < 600 ? 10 : (W < 1024 ? 14 : 20); // mobile: 10, tablet: 14, desktop: 20
+    const count = W < 600 ? 10 : (W < 1024 ? 14 : 20);
     const types = Object.keys(FLOWER_DEFS);
 
     for (let i = 0; i < count; i++) {
@@ -349,46 +402,70 @@ function spawnAutomaticFlowers() {
 
 function draw() {
     ctx.clearRect(0, 0, W, H);
-    drawEnvironment();
+
+    // Slowly decay any wind gusts triggered by phone shaking
+    shakeWind *= 0.94;
 
     const now = Date.now();
     const t = now - START;
 
-    // Pass 1: Draw Stems and Leaves
+    // Save context and apply tilt-based parallax translation to the entire canvas scene
+    ctx.save();
+    ctx.translate(parallaxX, parallaxY);
+
+    drawEnvironment();
+
+    // Pre-calculate interactive breeze sway based on cursor distance + shake motion wind
+    flowers.forEach((f) => {
+        const rawP = Math.min((now - f.startTime) / f.duration, 1);
+        if (rawP <= 0) return;
+        
+        const dx = mouseX - f.tx;
+        const mouseLean = clamp(dx / W, -0.6, 0.6) * 0.08;
+        const leanTarget = mouseLean + shakeWind;
+        f.currentLean = f.currentLean ? f.currentLean + (leanTarget - f.currentLean) * 0.05 : leanTarget;
+    });
+
+    // Pass 1: Stems and Leaves (swayed via canvas translation/rotation)
     flowers.forEach((f) => {
         const rawP = Math.min((now - f.startTime) / f.duration, 1);
         if (rawP <= 0) return;
         
         const sp = easeOut(rawP);
 
-        // Draw Stems
+        ctx.save();
+        ctx.translate(f.bx, f.by);
+        ctx.rotate(f.currentLean);
+        ctx.translate(-f.bx, -f.by);
+
         drawStemPoints(f.stemPoints, sp, f.thick, f.sd);
         drawStemPoints(f.stemPoints, sp, f.thick * 0.5, f.sl);
 
-        // Draw Leaves
         f.leafData.forEach((ld) => {
             if (sp > ld.lt) {
-                const lProg = clamp((sp - ld.lt) * 4, 0, 1);
+                const leafProg = clamp((sp - ld.lt) * 4, 0, 1);
                 if (f.type === 'lily') {
-                    drawLilyLeaf(ld.lx, ld.ly, ld.lAngle + (Math.PI / 2.8) * ld.lDir, f.size * 1.5, lProg);
+                    drawLilyLeaf(ld.lx, ld.ly, ld.lAngle + (Math.PI / 2.8) * ld.lDir, f.size * 1.5, leafProg);
                 } else if (f.type === 'sunflower') {
-                    drawSunflowerLeaf(ld.lx, ld.ly, ld.lAngle + (Math.PI / 2.5) * ld.lDir, f.size * 1.6, lProg);
+                    drawSunflowerLeaf(ld.lx, ld.ly, ld.lAngle + (Math.PI / 2.5) * ld.lDir, f.size * 1.6, leafProg);
                 } else if (f.type === 'tulip') {
-                    drawTulipLeaf(ld.lx, ld.ly, ld.lAngle + (Math.PI / 8) * ld.lDir, f.size * 2.2, lProg);
+                    drawTulipLeaf(ld.lx, ld.ly, ld.lAngle + (Math.PI / 8) * ld.lDir, f.size * 2.2, leafProg);
                 }
             }
         });
+
+        ctx.restore();
     });
 
-    // Pass 2: Draw a soft fading bottom shadow to hide the starting point of the flower stems
-    const shadowGrad = ctx.createLinearGradient(0, H, 0, BASE - 110);
-    shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.98)');
-    shadowGrad.addColorStop(0.35, 'rgba(0, 0, 0, 0.75)');
+    // Pass 2: Base Shadow Mask to hide origin roots
+    const shadowGrad = ctx.createLinearGradient(0, H, 0, BASE - 160);
+    shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.99)');
+    shadowGrad.addColorStop(0.4, 'rgba(0, 0, 0, 0.78)');
     shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = shadowGrad;
-    ctx.fillRect(0, BASE - 110, W, H - (BASE - 110));
+    ctx.fillRect(0, BASE - 160, W, H - (BASE - 160));
 
-    // Pass 3: Draw Flower Heads on top of the bottom shadow overlay
+    // Pass 3: Flower Heads (swayed in unison)
     flowers.forEach((f) => {
         const rawP = Math.min((now - f.startTime) / f.duration, 1);
         if (rawP <= 0) return;
@@ -417,12 +494,22 @@ function draw() {
 
         const wob = Math.sin(t * 0.0013 + f.wobble) * 0.05;
 
+        ctx.save();
+        ctx.translate(f.bx, f.by);
+        ctx.rotate(f.currentLean);
+        ctx.translate(-f.bx, -f.by);
+
         if (f.type === 'lily') drawLilyFlower(fx, fy, f.size, fp, wob, f.headAngle);
         else if (f.type === 'rose') drawRoseFlower(fx, fy, f.size, fp, wob, f.headAngle);
         else if (f.type === 'sunflower') drawSunflowerFlower(fx, fy, f.size, fp, wob, f.headAngle);
         else if (f.type === 'tulip') drawTulipFlower(fx, fy, f.size, fp, wob, f.headAngle);
         else if (f.type === 'generic') drawGenericFlower(fx, fy, f.size, fp, wob);
+
+        ctx.restore();
     });
+
+    // Restore canvas state after parallax displacement
+    ctx.restore();
 
     requestAnimationFrame(draw);
 }
@@ -432,13 +519,12 @@ window.addEventListener('resize', resize);
 spawnAutomaticFlowers();
 draw();
 
-// Retrieve text from Query Parameter (e.g. ?text=Happy+Birthday or preset flags like ?birthday or ?exam)
+// URL Query parameter router for custom text and fonts
 const urlParams = new URLSearchParams(window.location.search);
 let textParam = urlParams.get('text') || urlParams.get('msg');
 const fontParam = urlParams.get('font');
 const uiElement = document.getElementById('ui');
 
-// Check for preset situational flags if no custom text is provided
 if (!textParam) {
     if (urlParams.has('birthday')) {
         textParam = "Happy Birthday! Wishing you a beautiful day 🌸🎂";

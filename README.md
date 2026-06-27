@@ -1,4 +1,4 @@
-# 🌸 An Infinite Garden for Her
+# 🌸 Flower Bouquet
 
 A beautiful, performant, and responsive infinite flower garden built with vanilla HTML5 Canvas, modern CSS, and JavaScript. The page automatically populates with a staggered wave of blooming flowers, customized ambient glowing background, and support for query-driven text greetings in high-quality fonts.
 
@@ -36,7 +36,7 @@ Select between two premium fonts:
 - Monospace option: Append `&font=mono` (or `&font=jetbrains`) to render text in **JetBrains Mono**.
 
 *Example URL:*
-`http://bouquet.745482.xyz/?birthday&font=mono`
+`https://bouquet.745482.xyz/?birthday&font=mono`
 
 ---
 
