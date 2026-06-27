@@ -29,13 +29,13 @@ function bindSensors() {
     });
 
     window.addEventListener('devicemotion', (e) => {
-        const acc = e.accelerationIncludingGravity || e.acceleration;
+        const acc = e.acceleration; // Use pure acceleration (excluding gravity) to prevent constant shaking
         if (acc) {
             const speed = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
-            if (speed > 3) {
-                // High wind force multiplier for noticeable wind sway on shake
-                shakeWind += (Math.random() > 0.5 ? 1 : -1) * (speed - 3) * 0.05;
-                shakeWind = clamp(shakeWind, -0.85, 0.85); // Allow dramatic sway of up to ~48 degrees
+            // Threshold of 6.5 m/s^2 represents a deliberate shake gesture
+            if (speed > 6.5) {
+                // Trigger a smooth wind gust impulse
+                shakeWind = (Math.random() > 0.5 ? 1 : -1) * 0.35;
             }
         }
     });
@@ -409,10 +409,7 @@ function draw() {
     const now = Date.now();
     const t = now - START;
 
-    // Save context and apply tilt-based parallax translation to the entire canvas scene
-    ctx.save();
-    ctx.translate(parallaxX, parallaxY);
-
+    // 1. Draw static environment reflection pool (does not shift with device tilt)
     drawEnvironment();
 
     // Pre-calculate interactive breeze sway based on cursor distance + shake motion wind
@@ -426,7 +423,10 @@ function draw() {
         f.currentLean = f.currentLean ? f.currentLean + (leanTarget - f.currentLean) * 0.05 : leanTarget;
     });
 
-    // Pass 1: Stems and Leaves (swayed via canvas translation/rotation)
+    // 2. Draw stems & leaves with horizontal parallax displacement
+    ctx.save();
+    ctx.translate(parallaxX, 0);
+
     flowers.forEach((f) => {
         const rawP = Math.min((now - f.startTime) / f.duration, 1);
         if (rawP <= 0) return;
@@ -456,8 +456,9 @@ function draw() {
 
         ctx.restore();
     });
+    ctx.restore();
 
-    // Pass 2: Base Shadow Mask to hide origin roots
+    // 3. Draw static bottom shadow mask (does not shift with device tilt)
     const shadowGrad = ctx.createLinearGradient(0, H, 0, BASE - 160);
     shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.99)');
     shadowGrad.addColorStop(0.4, 'rgba(0, 0, 0, 0.78)');
@@ -465,7 +466,10 @@ function draw() {
     ctx.fillStyle = shadowGrad;
     ctx.fillRect(0, BASE - 160, W, H - (BASE - 160));
 
-    // Pass 3: Flower Heads (swayed in unison)
+    // 4. Draw flower heads with horizontal parallax displacement
+    ctx.save();
+    ctx.translate(parallaxX, 0);
+
     flowers.forEach((f) => {
         const rawP = Math.min((now - f.startTime) / f.duration, 1);
         if (rawP <= 0) return;
@@ -507,8 +511,6 @@ function draw() {
 
         ctx.restore();
     });
-
-    // Restore canvas state after parallax displacement
     ctx.restore();
 
     requestAnimationFrame(draw);
