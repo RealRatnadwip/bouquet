@@ -7,9 +7,10 @@
 body {
     width: 100vw;
     height: 100vh;
-    height: 100dvh; /* Dynamic viewport height to prevent browser toolbar clipping */
+    height: 100dvh;
+    /* Dynamic viewport height to prevent browser toolbar clipping */
     overflow: hidden;
-    background: 
+    background:
         radial-gradient(circle at 30% 30%, rgba(24, 10, 36, 0.85) 0%, rgba(0, 0, 0, 0) 65%),
         radial-gradient(circle at 70% 40%, rgba(46, 12, 28, 0.85) 0%, rgba(0, 0, 0, 0) 65%),
         radial-gradient(circle at 50% 80%, rgba(15, 30, 15, 0.45) 0%, rgba(0, 0, 0, 0) 55%),
@@ -54,17 +55,48 @@ canvas {
     display: none;
     z-index: 3;
     animation: fadeIn 2s ease-in-out forwards;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+    /* Keeps light text legible on bright day sky */
+}
+
+#clock {
+    position: absolute;
+    top: 20px;
+    left: 30px;
+    color: rgba(255, 255, 255, 0.5);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 300;
+    letter-spacing: 2px;
+    user-select: none;
+    pointer-events: none;
+    z-index: 9999;
+    /* Stays above the canvas dynamic layers, matching the footers */
+    font-variant-numeric: tabular-nums;
+    /* Prevent width jitter as digits tick */
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+    /* Keeps light text legible on bright day sky */
+}
+
+@media (max-width: 600px) {
+    #clock {
+        top: 15px;
+        left: 15px;
+        font-size: 11px;
+    }
 }
 
 .footer {
     position: absolute;
     bottom: 20px;
     right: 30px;
-    color: rgba(255, 255, 255, 0.5); /* Raised opacity for visibility */
+    color: rgba(255, 255, 255, 0.5);
+    /* Raised opacity for visibility */
     font-size: 11px;
     letter-spacing: 1.5px;
     user-select: none;
-    z-index: 9999; /* Higher z-index to stay on top of the canvas dynamic layers */
+    z-index: 9999;
+    /* Higher z-index to stay on top of the canvas dynamic layers */
 }
 
 .footer a {
@@ -110,28 +142,41 @@ canvas {
     .footer-left {
         display: none;
     }
+
     .mobile-create {
         display: inline;
     }
+
     .footer .mobile-create a {
         color: #ffffff;
         font-weight: 500;
         opacity: 0.95;
     }
+
     .footer .mobile-create a:hover {
         opacity: 1;
     }
+
     .footer {
         right: 0;
         width: 100%;
         text-align: center;
-        bottom: 35px; /* Lift higher up to clear iOS/Android system and browser bars */
+        bottom: 35px;
+        /* Lift higher up to clear iOS/Android system and browser bars */
         font-size: 12px;
-        color: rgba(255, 255, 255, 0.6); /* Slightly more visible on small displays */
+        color: rgba(255, 255, 255, 0.6);
+        /* Slightly more visible on small displays */
     }
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
