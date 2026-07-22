@@ -39,7 +39,7 @@ const GardenDock = (() => {
     dock.innerHTML =
         '<button class="dock-btn" id="dockFs" data-tip="Full Screen" aria-label="Toggle full screen">' + ICONS.expand + ICONS.compress + '</button>' +
         '<button class="dock-btn" id="dockTheme" data-tip="Theme" aria-label="Background theme" aria-haspopup="true">' + ICONS.theme + '</button>' +
-        '<button class="dock-btn" id="dockTools" data-tip="Toolbox" aria-label="Toolbox" aria-haspopup="true">' + ICONS.toolbox + '</button>';
+        '<button class="dock-btn" id="dockSounds" data-tip="Ambient Sounds" aria-label="Ambient Sounds">' + ICONS.sound + '</button>';
 
     const themePop = document.createElement('div');
     themePop.className = 'dock-popover';
@@ -54,24 +54,13 @@ const GardenDock = (() => {
             '</button>'
         ).join('');
 
-    const toolsPop = document.createElement('div');
-    toolsPop.className = 'dock-popover';
-    toolsPop.setAttribute('role', 'menu');
-    toolsPop.innerHTML =
-        '<div class="pop-title">Toolbox</div>' +
-        '<button class="pop-item" role="menuitem" data-tool="ambient-sounds">' +
-            ICONS.sound +
-            '<span class="pop-label">Ambient Sounds</span>' +
-        '</button>';
-
     layer.appendChild(dock);
     layer.appendChild(themePop);
-    layer.appendChild(toolsPop);
     document.body.appendChild(layer);
 
     const fsBtn = dock.querySelector('#dockFs');
     const themeBtn = dock.querySelector('#dockTheme');
-    const toolsBtn = dock.querySelector('#dockTools');
+    const soundsBtn = dock.querySelector('#dockSounds');
 
     // ---------- Fullscreen ----------
     const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
@@ -121,13 +110,7 @@ const GardenDock = (() => {
         markTheme(value);
     });
 
-    // ---------- Toolbox ----------
-    toolsPop.addEventListener('click', e => {
-        const item = e.target.closest('.pop-item');
-        if (!item) return;
-        closePopovers();
-        FloatingWindows.open(item.dataset.tool);
-    });
+
 
     // ---------- Popovers ----------
     let openPop = null;
@@ -161,7 +144,10 @@ const GardenDock = (() => {
     }
 
     themeBtn.addEventListener('click', () => togglePop(themePop, themeBtn));
-    toolsBtn.addEventListener('click', () => togglePop(toolsPop, toolsBtn));
+    soundsBtn.addEventListener('click', () => {
+        closePopovers();
+        FloatingWindows.toggle('ambient-sounds');
+    });
 
     document.addEventListener('pointerdown', e => {
         if (openPop && !e.target.closest('.dock, .dock-popover')) closePopovers();
@@ -169,13 +155,45 @@ const GardenDock = (() => {
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') closePopovers();
     });
-    window.addEventListener('resize', closePopovers);
+    window.addEventListener('resize', () => {
+        closePopovers();
+        if (touchMode) {
+            if (!isMobile()) {
+                // On tablet, keep the dock always visible
+                showDock();
+                clearTimeout(mobileTimer);
+            } else {
+                if (dockShown) {
+                    resetMobileTimer();
+                }
+            }
+        }
+    });
 
     // ---------- Auto-hide: dock + cursor ----------
     let dockShown = false;
     let idleTimer = null;
     let hideTimer = null;
     let currentShift = 0;
+    let mobileTimer = null;
+
+    const isMobile = () => {
+        return touchMode && (window.innerWidth <= 600 || window.innerHeight <= 600);
+    };
+
+    function resetMobileTimer() {
+        clearTimeout(mobileTimer);
+        mobileTimer = setTimeout(() => {
+            hideDock();
+        }, 7000);
+    }
+
+    function inMobileActivationArea(x, y) {
+        const pad = 30; // extra padding around dock
+        const w = (dock.offsetWidth || 56) + pad;
+        const h = (dock.offsetHeight || 144) + pad;
+        return x >= window.innerWidth - w - 10 && y <= currentShift + h + 12;
+    }
 
     function showDock() {
         clearTimeout(hideTimer);
@@ -257,7 +275,7 @@ const GardenDock = (() => {
         if (px === currentShift) return;
         currentShift = px;
         dock.style.setProperty('--dk-shift', px + 'px');
-        if (openPop) positionPop(openPop, openPop === themePop ? themeBtn : toolsBtn);
+        if (openPop) positionPop(openPop, themeBtn);
     }
 
     function updateCollision() {
@@ -298,8 +316,38 @@ const GardenDock = (() => {
     updateCollision();
 
     if (touchMode) {
-        // No hover/edge proximity on touch — keep the dock available
-        requestAnimationFrame(() => showDock());
+        requestAnimationFrame(() => {
+            showDock();
+            if (isMobile()) {
+                resetMobileTimer();
+            }
+        });
+
+        window.addEventListener('pointerdown', e => {
+            if (!isMobile()) return;
+            if (dockShown) {
+                resetMobileTimer();
+            } else {
+                if (inMobileActivationArea(e.clientX, e.clientY)) {
+                    showDock();
+                    resetMobileTimer();
+                }
+            }
+        }, { passive: true });
+
+        window.addEventListener('pointermove', e => {
+            if (!isMobile()) return;
+            if (dockShown) {
+                resetMobileTimer();
+            }
+        }, { passive: true });
+
+        window.addEventListener('scroll', () => {
+            if (!isMobile()) return;
+            if (dockShown) {
+                resetMobileTimer();
+            }
+        }, { passive: true });
     } else {
         window.addEventListener('mousemove', onActivity, { passive: true });
         window.addEventListener('mousedown', onActivity, { passive: true });
