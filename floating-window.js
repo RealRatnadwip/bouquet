@@ -40,17 +40,38 @@ const FloatingWindows = (() => {
 
     const effH = w => (w.min ? HEADER_H : w.h);
 
+    function getMobileFooterWidth() {
+        const footerEl = document.querySelector('.footer');
+        if (footerEl) {
+            const range = document.createRange();
+            range.selectNodeContents(footerEl);
+            const rect = range.getBoundingClientRect();
+            if (rect.width > 50) {
+                return Math.max(175, Math.round(rect.width));
+            }
+        }
+        return 195;
+    }
+
     // Clamp the rect fully inside the viewport and push it to the DOM
     function applyRect(w) {
         const vw = window.innerWidth, vh = window.innerHeight;
         const maxW = vw - MARGIN * 2, maxH = vh - MARGIN * 2;
+
         w.w = clamp(w.w, Math.min(w.minW, maxW), maxW);
         w.h = clamp(w.h, Math.min(w.minH, maxH), maxH);
-        w.x = clamp(w.x, MARGIN, Math.max(MARGIN, vw - w.w - MARGIN));
+
+        let renderW = w.w;
+        if (w.min && vw <= 640 && (w.def.minPosition === 'bottom-center' || w.def.draggable === false)) {
+            renderW = clamp(getMobileFooterWidth(), 170, maxW);
+        }
+
+        w.x = clamp(w.x, MARGIN, Math.max(MARGIN, vw - renderW - MARGIN));
         w.y = clamp(w.y, MARGIN, Math.max(MARGIN, vh - effH(w) - MARGIN));
+
         w.el.style.left = w.x + 'px';
         w.el.style.top = w.y + 'px';
-        w.el.style.width = w.w + 'px';
+        w.el.style.width = renderW + 'px';
         w.el.style.height = effH(w) + 'px';
     }
 
@@ -110,10 +131,36 @@ const FloatingWindows = (() => {
         grip.addEventListener('pointercancel', end);
     }
 
+    function getMinimizedY(vw, vh) {
+        const isMobile = vw <= 640;
+        const bottomOffset = isMobile ? 68 : 18;
+        return Math.max(MARGIN, vh - HEADER_H - bottomOffset);
+    }
+
     function toggleMinimize(id) {
         const w = wins.get(id);
         if (!w) return;
         w.min = !w.min;
+        const vw = window.innerWidth, vh = window.innerHeight;
+
+        if (w.min) {
+            w.restoredX = w.x;
+            w.restoredY = w.y;
+            if (w.def.minPosition === 'bottom-center' || w.def.draggable === false) {
+                const renderW = (vw <= 640) ? clamp(getMobileFooterWidth(), 170, vw - MARGIN * 2) : w.w;
+                w.x = Math.round((vw - renderW) / 2);
+                w.y = getMinimizedY(vw, vh);
+            }
+        } else {
+            if (w.def.minPosition === 'bottom-center' || w.def.draggable === false) {
+                w.x = Math.round((vw - w.w) / 2);
+                w.y = Math.round((vh - w.h) / 2);
+            } else if (w.restoredX != null && w.restoredY != null) {
+                w.x = w.restoredX;
+                w.y = w.restoredY;
+            }
+        }
+
         w.el.classList.toggle('fw-min', w.min);
         applyRect(w);
     }
@@ -143,12 +190,17 @@ const FloatingWindows = (() => {
         w.w = Math.min(w.w, vw - MARGIN * 2);
         w.h = Math.min(w.h, vh - MARGIN * 2);
 
-        const off = (cascade++ % 5) * 26;
+        const isCentered = def.draggable === false || def.centered;
+        const off = isCentered ? 0 : (cascade++ % 5) * 26;
         w.x = def.x != null ? def.x : Math.round((vw - w.w) / 2) + off;
         w.y = def.y != null ? def.y : Math.round((vh - w.h) / 2) + off;
 
+        let classes = 'fw fw-enter';
+        if (def.resizable === false) classes += ' fw-no-resize';
+        if (def.draggable === false) classes += ' fw-no-drag';
+
         const el = document.createElement('section');
-        el.className = 'fw fw-enter';
+        el.className = classes;
         el.setAttribute('role', 'dialog');
         el.setAttribute('aria-label', def.title);
         el.innerHTML =
@@ -160,22 +212,41 @@ const FloatingWindows = (() => {
                 '</div>' +
             '</header>' +
             '<div class="fw-body"></div>' +
-            '<div class="fw-resize" aria-hidden="true"></div>';
+            (def.resizable !== false ? '<div class="fw-resize" aria-hidden="true"></div>' : '');
         document.body.appendChild(el);
         w.el = el;
 
         wins.set(id, w);
         order.push(id);
         restack();
-        applyRect(w);
 
         el.addEventListener('pointerdown', () => focus(id), true);
         el.querySelector('.fw-btn-min').addEventListener('click', () => toggleMinimize(id));
         el.querySelector('.fw-btn-close').addEventListener('click', () => close(id));
-        makeDraggable(w);
-        makeResizable(w);
+        if (def.draggable !== false) {
+            makeDraggable(w);
+        }
+        if (def.resizable !== false) {
+            makeResizable(w);
+        }
 
         if (typeof def.build === 'function') def.build(el.querySelector('.fw-body'), api);
+
+        // Auto-fit height to exact content if window is non-resizable or height is unconstrained
+        if (def.resizable === false || def.autoHeight || !def.height) {
+            const bodyEl = el.querySelector('.fw-body');
+            if (bodyEl) {
+                const fitH = HEADER_H + bodyEl.scrollHeight + 2;
+                w.h = fitH;
+                w.minH = fitH;
+            }
+        }
+
+        // Re-center after content height auto-calculation if centered
+        if (isCentered && def.y == null) {
+            w.y = Math.round((vh - w.h) / 2);
+        }
+        applyRect(w);
 
         // Double rAF so the enter transition runs after first paint
         requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('fw-enter')));
@@ -193,7 +264,20 @@ const FloatingWindows = (() => {
         if (typeof w.def.onClose === 'function') w.def.onClose();
     }
 
-    window.addEventListener('resize', () => wins.forEach(applyRect));
+    window.addEventListener('resize', () => {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        wins.forEach(w => {
+            if (w.min && (w.def.minPosition === 'bottom-center' || w.def.draggable === false)) {
+                const renderW = (vw <= 640) ? clamp(getMobileFooterWidth(), 170, vw - MARGIN * 2) : w.w;
+                w.x = Math.round((vw - renderW) / 2);
+                w.y = getMinimizedY(vw, vh);
+            } else if (!w.min && w.def.draggable === false) {
+                w.x = Math.round((vw - w.w) / 2);
+                w.y = Math.round((vh - w.h) / 2);
+            }
+            applyRect(w);
+        });
+    });
 
     const api = {
         register(id, def) { defs.set(id, def); },
