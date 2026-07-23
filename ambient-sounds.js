@@ -94,9 +94,6 @@ const AmbientSounds = (() => {
     }
 
     function syncRow(c) {
-        // Guard only on ui presence — the row may not be in the DOM yet at
-        // build time; syncRow always targets the latest c.ui, so a detached
-        // node from a closed window is never touched after reassignment.
         if (!c.ui) return;
         c.ui.row.classList.toggle('am-on', c.on);
         c.ui.toggle.checked = c.on;
@@ -111,15 +108,15 @@ const AmbientSounds = (() => {
         row.innerHTML =
             '<div class="am-ic" aria-hidden="true">' + def.icon + '</div>' +
             '<div class="am-main">' +
-                '<div class="am-top">' +
-                    '<span class="am-name">' + def.name + '</span>' +
-                    '<span class="am-eq" aria-hidden="true"><span></span><span></span><span></span></span>' +
-                    '<label class="am-switch">' +
-                        '<input type="checkbox" aria-label="' + def.name + ' on/off">' +
-                        '<span class="am-knob"></span>' +
-                    '</label>' +
-                '</div>' +
-                '<input class="am-vol" type="range" min="0" max="1" step="0.01" aria-label="' + def.name + ' volume">' +
+            '<div class="am-top">' +
+            '<span class="am-name">' + def.name + '</span>' +
+            '<span class="am-eq" aria-hidden="true"><span></span><span></span><span></span></span>' +
+            '<label class="am-switch">' +
+            '<input type="checkbox" aria-label="' + def.name + ' on/off">' +
+            '<span class="am-knob"></span>' +
+            '</label>' +
+            '</div>' +
+            '<input class="am-vol" type="range" min="0" max="1" step="0.01" aria-label="' + def.name + ' volume">' +
             '</div>';
 
         const toggle = row.querySelector('.am-switch input');
@@ -143,9 +140,10 @@ const AmbientSounds = (() => {
     FloatingWindows.register('ambient-sounds', {
         title: 'Ambient Sounds',
         width: 336,
-        height: 356,
         minWidth: 280,
-        minHeight: 220,
+        resizable: false,
+        draggable: false,
+        minPosition: 'bottom-center',
         build(body) {
             body.classList.add('am-body');
             SOUNDS.forEach(def => body.appendChild(buildRow(def)));
@@ -158,9 +156,6 @@ const AmbientSounds = (() => {
             foot.querySelector('.am-stop').addEventListener('click', stopAll);
             body.appendChild(foot);
         }
-        // No onClose handler: audio engine runs independently of the window.
-        // Rows re-sync from channel state on every open (buildRow → syncRow),
-        // so reopening restores toggles and volume levels automatically.
     });
 
     return { stopAll };

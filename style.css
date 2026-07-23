@@ -94,7 +94,7 @@ body.is-timelapse .fw {
     display: none !important;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
     #clock {
         top: 15px;
         left: 15px;
@@ -154,7 +154,7 @@ body.is-timelapse .fw {
     display: none;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
     .footer-left {
         display: none;
     }

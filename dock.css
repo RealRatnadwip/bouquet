@@ -201,7 +201,7 @@ html.is-fullscreen .dock-btn .ic-expand {
     color: #ffffff;
 }
 
-.pop-item + .pop-item {
+.pop-item+.pop-item {
     margin-top: 2px;
 }
 
@@ -253,7 +253,7 @@ html.is-fullscreen .dock-btn .ic-expand {
     -webkit-backdrop-filter: blur(26px) saturate(1.25);
     box-shadow: var(--dk-shadow);
     overflow: hidden;
-    transition: opacity 0.32s ease, transform 0.4s var(--dk-ease), height 0.42s var(--dk-ease), box-shadow 0.3s ease;
+    transition: opacity 0.32s ease, transform 0.4s var(--dk-ease), left 0.45s var(--dk-ease), top 0.45s var(--dk-ease), width 0.42s var(--dk-ease), height 0.42s var(--dk-ease), box-shadow 0.3s ease;
 }
 
 .fw.fw-enter {
@@ -270,6 +270,7 @@ html.is-fullscreen .dock-btn .ic-expand {
 .fw.fw-dragging {
     box-shadow: 0 30px 70px rgba(0, 0, 0, 0.68);
     transform: scale(1.008);
+    transition: none !important;
 }
 
 .fw.fw-resizing {
@@ -288,6 +289,10 @@ html.is-fullscreen .dock-btn .ic-expand {
     user-select: none;
     -webkit-user-select: none;
     touch-action: none;
+}
+
+.fw.fw-no-drag .fw-header {
+    cursor: default !important;
 }
 
 .fw-dragging .fw-header {
@@ -380,8 +385,13 @@ html.is-fullscreen .dock-btn .ic-expand {
     pointer-events: none;
 }
 
-.fw.fw-min .fw-resize {
-    display: none;
+.fw.fw-min .fw-resize,
+.fw.fw-no-resize .fw-resize {
+    display: none !important;
+}
+
+.fw.fw-no-resize .fw-body {
+    overflow: hidden !important;
 }
 
 .fw-resize {
@@ -558,12 +568,12 @@ html.is-fullscreen .dock-btn .ic-expand {
     transition: transform 0.3s var(--dk-ease), background 0.3s ease;
 }
 
-.am-switch input:checked + .am-knob {
+.am-switch input:checked+.am-knob {
     background: rgba(255, 255, 255, 0.85);
     border-color: transparent;
 }
 
-.am-switch input:checked + .am-knob::after {
+.am-switch input:checked+.am-knob::after {
     transform: translateX(14px);
     background: #0a0610;
 }
@@ -644,7 +654,7 @@ html.is-fullscreen .dock-btn .ic-expand {
 }
 
 /* ---------- Responsive ---------- */
-@media (max-width: 600px) {
+@media (max-width: 640px) {
     .dock {
         top: 12px;
         right: 10px;
@@ -665,6 +675,25 @@ html.is-fullscreen .dock-btn .ic-expand {
 
     .am-body {
         padding: 12px 12px 10px;
+    }
+
+    .fw-header {
+        padding: 0 6px 0 10px;
+        gap: 4px;
+    }
+
+    .fw-title {
+        font-size: 10px;
+        letter-spacing: 0.6px;
+    }
+
+    .fw-actions {
+        gap: 2px;
+    }
+
+    .fw-btn {
+        width: 24px;
+        height: 24px;
     }
 }
 
